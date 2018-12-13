@@ -151,18 +151,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="aria2c.exe" />
-    <None Include="phantomjs.exe" />
     <None Include="stdout.js" />
-    <None Include="youtube-dl.exe" />
   </ItemGroup>
   <ItemGroup>
     <None Include="serienstream.js" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="libaacs.dll" />
-    <None Include="libbdplus.dll" />
-    <None Include="mpv.exe" />
   </ItemGroup>
   <ItemGroup>
     <None Include="7za.exe" />
