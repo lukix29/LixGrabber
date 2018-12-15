@@ -1,6 +1,6 @@
 ﻿namespace LixGrabber
 {
-    partial class Form1
+    partial class FormMain
     {
         /// <summary>
         /// Erforderliche Designervariable.
@@ -29,7 +29,7 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FormMain));
             this.btn_FetchSeriesInfo = new System.Windows.Forms.Button();
             this.txtB_Url = new System.Windows.Forms.TextBox();
             this.txtb_output = new System.Windows.Forms.TextBox();

@@ -66,11 +66,11 @@
     <Compile Include="FetchBrowser.Designer.cs">
       <DependentUpon>FetchBrowser.cs</DependentUpon>
     </Compile>
-    <Compile Include="Form1.cs">
+    <Compile Include="FormMain.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Form1.Designer.cs">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <Compile Include="FormMain.Designer.cs">
+      <DependentUpon>FormMain.cs</DependentUpon>
     </Compile>
     <Compile Include="FormDownload.cs">
       <SubType>Form</SubType>
@@ -84,11 +84,11 @@
     <Compile Include="FormSearch.Designer.cs">
       <DependentUpon>FormSearch.cs</DependentUpon>
     </Compile>
-    <Compile Include="KodiPlay.cs">
+    <Compile Include="FormKodiPlay.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="KodiPlay.Designer.cs">
-      <DependentUpon>KodiPlay.cs</DependentUpon>
+    <Compile Include="FormKodiPlay.Designer.cs">
+      <DependentUpon>FormKodiPlay.cs</DependentUpon>
     </Compile>
     <Compile Include="LixGrabber\LixKodiRpc.cs" />
     <Compile Include="LixGrabber\LixAnimeGrabber.cs" />
@@ -110,8 +110,8 @@
     <EmbeddedResource Include="FetchBrowser.resx">
       <DependentUpon>FetchBrowser.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Form1.resx">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <EmbeddedResource Include="FormMain.resx">
+      <DependentUpon>FormMain.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="FormDownload.resx">
       <DependentUpon>FormDownload.cs</DependentUpon>
@@ -119,8 +119,8 @@
     <EmbeddedResource Include="FormSearch.resx">
       <DependentUpon>FormSearch.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="KodiPlay.resx">
-      <DependentUpon>KodiPlay.cs</DependentUpon>
+    <EmbeddedResource Include="FormKodiPlay.resx">
+      <DependentUpon>FormKodiPlay.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

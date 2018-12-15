@@ -7,17 +7,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using SerienStreamTo;
+using Lix.SeriesManager;
 
 namespace LixGrabber
 {
     public partial class FormSearch : Form
     {
-        private Form1 Form1Main;
+        private FormMain Form1Main;
 
         private string lastSearch = "";
 
-        public FormSearch(Form1 form1)
+        public FormSearch(FormMain form1)
         {
             InitializeComponent();
             Form1Main = form1;

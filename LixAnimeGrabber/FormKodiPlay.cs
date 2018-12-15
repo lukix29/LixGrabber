@@ -8,13 +8,13 @@ using LixGrabber.Properties;
 
 namespace LixGrabber
 {
-    public partial class KodiPlay : Form
+    public partial class FormKodiPlay : Form
     {
-        private Form1 Form1Main;
+        private FormMain Form1Main;
         private Kodi kodiRPC = new Kodi();
         private int refreshCnt = 0;
 
-        public KodiPlay(Form1 form)
+        public FormKodiPlay(FormMain form)
         {
             InitializeComponent();
             Form1Main = form;

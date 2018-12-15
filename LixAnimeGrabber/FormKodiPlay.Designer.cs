@@ -1,6 +1,6 @@
 ﻿namespace LixGrabber
 {
-    partial class KodiPlay
+    partial class FormKodiPlay
     {
         /// <summary>
         /// Required designer variable.

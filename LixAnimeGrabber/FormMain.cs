@@ -14,18 +14,18 @@ using LixGrabber.Properties;
 
 namespace LixGrabber
 {
-    public partial class Form1 : Form
+    public partial class FormMain : Form
     {
         public CancellationToken cancelationToken = new CancellationToken();
 
-        public KodiPlay kodiPlay = null;
+        public FormKodiPlay kodiPlay = null;
 
         private int dlPercentage = -1;
 
         private FormDownload formDownload = null;
         private Dictionary<string, SeriesInfo> SavedSeries = new Dictionary<string, SeriesInfo>();
 
-        public Form1()
+        public FormMain()
         {
             InitializeComponent();
             cBL_Episodes.MeasureItem += CBL_MeasureItem;
@@ -828,8 +828,8 @@ namespace LixGrabber
 
         private void tSB_KodiPlay_Click(object sender, EventArgs e)
         {
-            if (kodiPlay == null) kodiPlay = new KodiPlay(this);
-            if (kodiPlay.IsDisposed) kodiPlay = new KodiPlay(this);
+            if (kodiPlay == null) kodiPlay = new FormKodiPlay(this);
+            if (kodiPlay.IsDisposed) kodiPlay = new FormKodiPlay(this);
 
             kodiPlay.Show();
             kodiPlay.BringToFront();
