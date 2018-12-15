@@ -154,9 +154,6 @@
     <None Include="stdout.js" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="serienstream.js" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="7za.exe" />
   </ItemGroup>
   <ItemGroup>
@@ -183,9 +180,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\vivo.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Readme.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
