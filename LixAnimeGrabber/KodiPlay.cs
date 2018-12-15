@@ -1,24 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using Lix.Extensions;
+using Lix.Kodi;
+using Lix.SeriesManager;
 using LixGrabber.Properties;
-using SerienStreamTo;
-using Kodi_RPC;
-using System.Net;
-using LixDownloader;
 
 namespace LixGrabber
 {
     public partial class KodiPlay : Form
     {
         private Form1 Form1Main;
-        private KodiRPC kodiRPC = new KodiRPC();
+        private Kodi kodiRPC = new Kodi();
         private int refreshCnt = 0;
 
         public KodiPlay(Form1 form)
@@ -114,14 +107,14 @@ namespace LixGrabber
                 var item = (LanguageInfo)Form1Main.cBL_Languages.SelectedItem;
 
                 Form1Main.cancelationToken.Reset();
-                if (kodiRPC.PlayerInfo.Status != PlayerStatus.Playing)
+                if (kodiRPC.PlayerInfo.Status != KodiPlayerStatus.Playing)
                 {
                     //await DownLoader.Download(DownloadType.YT_DL, Form1Main.downloadInfo);
 
                     string url = await item.FetchVideoUrl(Form1Main.downloadInfo);
                     item.Hoster.Episode.Season.Series.Save();
                     var result = await kodiRPC.Play(url);
-                    if (result.Status == PlayerStatus.Playing)
+                    if (result.Status == KodiPlayerStatus.Playing)
                     {
                         btn_ConnectKodi.ForeColor = Color.LimeGreen;
                         btn_ConnectKodi.Enabled = false;
@@ -136,15 +129,15 @@ namespace LixGrabber
                 {
                     switch ((await kodiRPC.Pause()).Status)
                     {
-                        case PlayerStatus.Playing:
+                        case KodiPlayerStatus.Playing:
                             btn_Play.Text = "Pause";
                             break;
 
-                        case PlayerStatus.Pause:
+                        case KodiPlayerStatus.Pause:
                             btn_Play.Text = "Resume";
                             break;
 
-                        case PlayerStatus.Stopped:
+                        case KodiPlayerStatus.Stopped:
                             btn_Play.Text = "Play";
                             break;
 
@@ -230,7 +223,7 @@ namespace LixGrabber
         private void numericUpDown1_ValueChanged(object sender, EventArgs e)
         {
             Settings.Default.KODI_BUFFER_SIZE = (int)numericUpDown1.Value;
-            kodiRPC.BufferSize = HTTP_Stream_Server.MEGABYTE * (int)numericUpDown1.Value;
+            kodiRPC.BufferSize = LiXMath.MIBIBYTE * (int)numericUpDown1.Value;
             Settings.Default.Save();
         }
 
@@ -278,10 +271,10 @@ namespace LixGrabber
             if (refreshCnt >= 10)
             {
                 kodiRPC.GetProperties();
-                if (kodiRPC.PlayerInfo.Status != PlayerStatus.Error)
+                if (kodiRPC.PlayerInfo.Status != KodiPlayerStatus.Error)
                 {
                     setEnabled(true);
-                    if (kodiRPC.PlayerInfo.Status == PlayerStatus.Playing)
+                    if (kodiRPC.PlayerInfo.Status == KodiPlayerStatus.Playing)
                     {
                         if (!string.IsNullOrEmpty(kodiRPC.PlayerInfo.Thumbnail))
                         {
@@ -291,7 +284,7 @@ namespace LixGrabber
                 }
                 refreshCnt = 0;
             }
-            if (kodiRPC.PlayerInfo.Status == PlayerStatus.Playing)
+            if (kodiRPC.PlayerInfo.Status == KodiPlayerStatus.Playing)
             {
                 if (!string.IsNullOrEmpty(kodiRPC.PlayerInfo.Thumbnail))
                 {
@@ -312,7 +305,7 @@ namespace LixGrabber
             }
             else
             {
-                if (kodiRPC.PlayerInfo.Status == PlayerStatus.Error)
+                if (kodiRPC.PlayerInfo.Status == KodiPlayerStatus.Error)
                 {
                     setEnabled(false);
                 }

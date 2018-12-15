@@ -1,12 +1,12 @@
 // MIT License - Copyright (c) 2016 Can Güney Aksakalli
 
 using System;
+using System.IO;
 using System.Net;
 using System.Threading.Tasks;
-using System.IO;
-using System.Web;
+using Lix.Extensions;
 
-namespace SerienStreamTo
+namespace Lix.HttpServer
 {
     public class HTTP_Server : IDisposable
     {
@@ -174,7 +174,6 @@ namespace SerienStreamTo
     {
         //private const string tokenKey = "token=";
 
-        public const int MEGABYTE = 1048576;
         private readonly int _port;
         private HttpListener _listener;
         private Task _serverThread;
@@ -193,7 +192,7 @@ namespace SerienStreamTo
         //public event OnURLReceived ReceivedURL;
         public Action<string> Action { get; set; }
 
-        public int BufferSize { get; set; } = MEGABYTE * 5;
+        public int BufferSize { get; set; } = LiXMath.MIBIBYTE * 5;
 
         //private string received = "";
         //public delegate void OnURLReceived(HTTP_Server server, string URL);

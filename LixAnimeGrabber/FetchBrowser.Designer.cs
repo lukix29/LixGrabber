@@ -1,4 +1,4 @@
-﻿namespace SerienStreamTo
+﻿namespace Lix.SeriesManager
 {
     partial class FetchBrowser
     {

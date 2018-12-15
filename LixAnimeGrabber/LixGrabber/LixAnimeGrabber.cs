@@ -1,72 +1,16 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using SerienStreamTo;
+using Lix.Extensions;
+using Lix.SeriesManager;
+using Newtonsoft.Json;
 
-namespace LixAnimeGrabber
+namespace Lix.Anime
 {
-    public static class Extensions
-    {
-        public static string GetBetween(this string input, string left, string right = null)
-        {
-            int i0 = input.IndexOf(left) + (left.Length + 1);
-            if (string.IsNullOrEmpty(right))
-            {
-                return input.Substring(i0);
-            }
-            int i1 = input.IndexOf(right, i0);
-            if (i1 < i0)
-            {
-                return input.Substring(i0);
-            }
-            else
-            {
-                return input.Substring(i0, i1 - i0);
-            }
-        }
-
-        public static string GetLast(this string input, string left, string right = null)
-        {
-            int i0 = input.LastIndexOf(left) + (left.Length);
-            if (string.IsNullOrEmpty(right))
-            {
-                return input.Substring(i0);
-            }
-            int i1 = input.IndexOf(right, i0);
-            if (i1 < i0)
-            {
-                return input.Substring(i0);
-            }
-            else
-            {
-                return input.Substring(i0, i1 - i0);
-            }
-        }
-
-        public static string RemoveInvalidFileChars(this string input)
-        {
-            foreach (char c in Path.GetInvalidFileNameChars())
-            {
-                input = input.Replace(new string(c, 1), "");
-            }
-            return input;
-        }
-
-        public static string RemoveInvalidPathChars(this string input)
-        {
-            foreach (char c in Path.GetInvalidPathChars())
-            {
-                input = input.Replace(new string(c, 1), "");
-            }
-            return input;
-        }
-    }
-
     public class AnimeEpisodes
     {
         public string Id { get; set; } = null;
@@ -476,7 +420,7 @@ namespace LixAnimeGrabber
 
         public static string GetWebsite(string url)
         {
-            if (LixDownloader.DownLoader.DownloadSync(LixDownloader.DownloadType.Phantom, null))
+            if (Lix.Downloader.ResourceDownLoader.DownloadSync(Lix.Downloader.ResourceDownloadType.Phantom, null))
             {
                 var proc = new Process();
                 proc.StartInfo.FileName = "phantomjs.exe";

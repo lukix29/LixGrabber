@@ -1,63 +1,82 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.IO;
 
-namespace LixGrabber
+namespace Lix.Extensions
 {
-    public static class LiXMath
+    public static class Extensions
     {
         private static readonly string[] SizeSuffixes = { "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB" };
 
-        public static decimal Constrain(decimal x, decimal min, decimal max)
+        public static string GetBetween(this string input, string left, string right = null)
         {
-            return Math.Max(min, Math.Max(max, x));
+            int i0 = input.IndexOf(left) + (left.Length + 1);
+            if (string.IsNullOrEmpty(right))
+            {
+                return input.Substring(i0);
+            }
+            int i1 = input.IndexOf(right, i0);
+            if (i1 < i0)
+            {
+                return input.Substring(i0);
+            }
+            else
+            {
+                return input.Substring(i0, i1 - i0);
+            }
         }
 
-        public static int Constrain(int x, int min, int max)
+        public static string GetBetweenN(this string input, string left, string right = null)
         {
-            return Math.Max(min, Math.Max(max, x));
+            int i0 = input.IndexOf(left) + (left.Length);
+            if (string.IsNullOrEmpty(right))
+            {
+                return input.Substring(i0);
+            }
+            int i1 = input.IndexOf(right, i0);
+            if (i1 < i0)
+            {
+                return input.Substring(i0);
+            }
+            else
+            {
+                return input.Substring(i0, i1 - i0);
+            }
         }
 
-        public static long Constrain(long x, long min, long max)
+        public static string GetLast(this string input, string left, string right = null)
         {
-            return Math.Max(min, Math.Max(max, x));
+            int i0 = input.LastIndexOf(left) + (left.Length);
+            if (string.IsNullOrEmpty(right))
+            {
+                return input.Substring(i0);
+            }
+            int i1 = input.IndexOf(right, i0);
+            if (i1 < i0)
+            {
+                return input.Substring(i0);
+            }
+            else
+            {
+                return input.Substring(i0, i1 - i0);
+            }
         }
 
-        public static double Constrain(double x, double min, double max)
+        public static string RemoveInvalidFileChars(this string input, string replaceto = "")
         {
-            return Math.Max(min, Math.Max(max, x));
+            foreach (char c in Path.GetInvalidFileNameChars())
+            {
+                input = input.Replace(new string(c, 1), replaceto);
+            }
+            return input;
         }
 
-        public static float Constrain(float x, float min, float max)
+        public static string RemoveInvalidPathChars(this string input, string replaceto = "")
         {
-            return Math.Max(min, Math.Max(max, x));
-        }
-
-        public static decimal Map(decimal x, decimal in_min, decimal in_max, decimal out_min, decimal out_max)
-        {
-            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-        }
-
-        public static long Map(long x, long in_min, long in_max, long out_min, long out_max)
-        {
-            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-        }
-
-        public static int Map(int x, int in_min, int in_max, int out_min, int out_max)
-        {
-            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-        }
-
-        public static double Map(double x, double in_min, double in_max, double out_min, double out_max)
-        {
-            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-        }
-
-        public static float Map(float x, float in_min, float in_max, float out_min, float out_max)
-        {
-            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+            foreach (char c in Path.GetInvalidPathChars())
+            {
+                input = input.Replace(new string(c, 1), replaceto);
+            }
+            return input;
         }
 
         public static string SingleDuration(this TimeSpan now)
@@ -220,6 +239,80 @@ namespace LixGrabber
             return string.Format("{0:n" + decimalPlaces + "}{1}",
                 adjustedSize,
                 SizeSuffixes[mag]);
+        }
+
+        public static string RemoveInvalidFileChars(this string input)
+        {
+            foreach (char c in Path.GetInvalidFileNameChars())
+            {
+                input = input.Replace(new string(c, 1), "");
+            }
+            return input;
+        }
+
+        public static string RemoveInvalidPathChars(this string input)
+        {
+            foreach (char c in Path.GetInvalidPathChars())
+            {
+                input = input.Replace(new string(c, 1), "");
+            }
+            return input;
+        }
+    }
+
+    public static class LiXMath
+    {
+        public const int KIBIBYTE = 1024;
+        public const int MIBIBYTE = 1048576;
+
+        public static decimal Constrain(decimal x, decimal min, decimal max)
+        {
+            return Math.Max(min, Math.Max(max, x));
+        }
+
+        public static int Constrain(int x, int min, int max)
+        {
+            return Math.Max(min, Math.Max(max, x));
+        }
+
+        public static long Constrain(long x, long min, long max)
+        {
+            return Math.Max(min, Math.Max(max, x));
+        }
+
+        public static double Constrain(double x, double min, double max)
+        {
+            return Math.Max(min, Math.Max(max, x));
+        }
+
+        public static float Constrain(float x, float min, float max)
+        {
+            return Math.Max(min, Math.Max(max, x));
+        }
+
+        public static decimal Map(decimal x, decimal in_min, decimal in_max, decimal out_min, decimal out_max)
+        {
+            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+        }
+
+        public static long Map(long x, long in_min, long in_max, long out_min, long out_max)
+        {
+            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+        }
+
+        public static int Map(int x, int in_min, int in_max, int out_min, int out_max)
+        {
+            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+        }
+
+        public static double Map(double x, double in_min, double in_max, double out_min, double out_max)
+        {
+            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+        }
+
+        public static float Map(float x, float in_min, float in_max, float out_min, float out_max)
+        {
+            return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
         }
     }
 }

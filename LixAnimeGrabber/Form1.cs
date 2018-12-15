@@ -1,17 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Net;
-using System.IO;
+using Lix.Extensions;
+using Lix.SeriesManager;
 using LixGrabber.Properties;
-using SerienStreamTo;
-using Kodi_RPC;
 
 //using PuppeteerSharp;
 
@@ -168,8 +165,6 @@ namespace LixGrabber
                 CheckDirectory(SelectedSeries, txtb_output.Text);
 
                 AddToDownloader(item);
-
-                //downloadItem(item, txtb_output.Text);
             }
         }
 
@@ -548,7 +543,7 @@ namespace LixGrabber
         //    downloadInfo();
         //}
 
-        private async void FetchNewEpisode(SerienStreamTo.SeriesInfo seriesInfo)
+        private async void FetchNewEpisode(SeriesInfo seriesInfo)
         {
             try
             {

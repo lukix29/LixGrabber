@@ -1,18 +1,200 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Net;
-using SerienStreamTo;
-using System.IO;
 using System.Diagnostics;
-using System.Windows.Forms;
-using LixGrabber;
+using System.IO;
+using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Lix.Extensions;
+using Lix.SeriesManager;
 
-namespace LixDownlaoder
+namespace Lix.Downloader
 {
+    public enum ResourceDownloadType
+    {
+        MPV,
+        YT_DL,
+        Phantom,
+        Aria2c,
+    }
+
+    public class ResourceDownLoader
+    {
+        private static Dictionary<ResourceDownloadType, string[]> fileNames = new Dictionary<ResourceDownloadType, string[]>
+        {
+                { ResourceDownloadType.MPV,     new string[]{ "mpv.exe", "libaacs.dll", "libbdplus.dll" } },
+                { ResourceDownloadType.Phantom, new string[]{ "phantomjs.exe" } },
+                { ResourceDownloadType.YT_DL,   new string[]{ "youtube-dl.exe" } },
+                { ResourceDownloadType.Aria2c,  new string[]{ "aria2c.exe" } },
+        };
+
+        private static Dictionary<ResourceDownloadType, string> urls = new Dictionary<ResourceDownloadType, string>()
+        {
+            { ResourceDownloadType.MPV,     "https://filedrop.space/dl?u=643884bce498ba0dbbeee66ecd883c46" },
+            { ResourceDownloadType.Phantom, "https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-windows.zip" },
+            { ResourceDownloadType.YT_DL,   "https://yt-dl.org/latest/youtube-dl.exe" },
+            { ResourceDownloadType.Aria2c,  "https://github.com/aria2/aria2/releases/download/release-1.34.0/aria2-1.34.0-win-64bit-build1.zip" },
+        };
+
+        private static Dictionary<ResourceDownloadType, string> zipNames = new Dictionary<ResourceDownloadType, string>
+        {
+                { ResourceDownloadType.MPV,     "mpv.7z" },
+                { ResourceDownloadType.Phantom, "phantomjs.zip" },
+                { ResourceDownloadType.YT_DL,   "youtube-dl.exe" },
+                { ResourceDownloadType.Aria2c,  "aria2c.zip" },
+        };
+
+        public static Task<bool> Download(ResourceDownloadType type, Action<int, string, string> downloadInfo)
+        {
+            return Task.Run(() =>
+            {
+                return DownloadSync(type, downloadInfo);
+            });
+        }
+
+        public static bool DownloadSync(ResourceDownloadType type, Action<int, string, string> downloadInfo)
+        {
+            try
+            {
+                if (!Exists(type))
+                {
+                    switch (type)
+                    {
+                        case ResourceDownloadType.MPV:
+                            bool b = DownloadWebClient(type, downloadInfo);
+                            if (b)
+                            {
+                                return Unzip(type, downloadInfo);
+                            }
+                            break;
+
+                        case ResourceDownloadType.Phantom:
+                            b = DownloadWebClient(type, downloadInfo);
+                            if (b)
+                            {
+                                return Unzip(type, downloadInfo);
+                            }
+                            break;
+
+                        case ResourceDownloadType.YT_DL:
+                            b = DownloadWebClient(type, downloadInfo);
+                            if (b)
+                            {
+                                return DownloadSync(ResourceDownloadType.Phantom, downloadInfo);
+                            }
+                            break;
+
+                        case ResourceDownloadType.Aria2c:
+                            b = DownloadWebClient(type, downloadInfo);
+                            if (b)
+                            {
+                                return Unzip(type, downloadInfo);
+                            }
+                            break;
+                    }
+                }
+                else
+                {
+                    return true;
+                }
+            }
+            catch (Exception x)
+            {
+            }
+            return false;
+        }
+
+        public static bool DownloadWebClient(ResourceDownloadType type, Action<int, string, string> onStdoutReadLine)
+        {
+            var request = (HttpWebRequest)WebRequest.Create(urls[type]);
+            request.AutomaticDecompression = DecompressionMethods.GZip;
+            using (var filestream = new FileStream(zipNames[type], FileMode.OpenOrCreate, FileAccess.ReadWrite))
+            {
+                if (filestream.Length > 0)
+                {
+                    request.AddRange(filestream.Length);
+                }
+                using (var response = (HttpWebResponse)request.GetResponse())
+                {
+                    float length = response.ContentLength;
+                    using (var stream = response.GetResponseStream())
+                    {
+                        float speed = 0f;
+                        int aspd = 0;
+                        DateTime dt = DateTime.UtcNow;
+                        byte[] buffer = new byte[1024];// HTTP_Stream_Server.MEGABYTE];
+                        while (true)
+                        {
+                            int r = stream.Read(buffer, 0, buffer.Length);
+                            if (r <= 0) break;
+                            aspd += r;
+                            filestream.Write(buffer, 0, r);
+                            if (DateTime.UtcNow.Subtract(dt).TotalSeconds >= 1.0)
+                            {
+                                speed = aspd / 1024f;
+                                aspd = 0;
+
+                                onStdoutReadLine?.Invoke((int)((filestream.Position / length) * 100),
+                                        speed.ToString("F1") + "kiB/s", zipNames[type]);
+
+                                dt = DateTime.UtcNow;
+                            }
+                        }
+                        onStdoutReadLine?.Invoke(-1, "", "");
+                        return (filestream.Length > LiXMath.MIBIBYTE && filestream.Length >= length);
+                    }
+                }
+            }
+        }
+
+        public static bool Unzip(ResourceDownloadType type, Action<int, string, string> onStdoutReadLine, params string[] names)
+        {
+            try
+            {
+                if (zipNames[type].EndsWith("exe")) return true;
+                using (Process p = new Process())
+                {
+                    p.StartInfo.Arguments = "e -y -r " + zipNames[type] + " " + string.Join(" ", fileNames[type]);
+                    p.StartInfo.FileName = "7za.exe";
+                    p.StartInfo.WorkingDirectory = Path.GetFullPath(".\\");
+                    p.StartInfo.CreateNoWindow = true;
+                    p.StartInfo.UseShellExecute = false;
+                    p.StartInfo.RedirectStandardOutput = true;
+                    p.Start();
+
+                    while (!p.StandardOutput.EndOfStream)
+                    {
+                        var ps = p.StandardOutput.ReadLine();
+                        if (!string.IsNullOrWhiteSpace(ps))
+                        {
+                            ps = ps.Trim();
+                            //int.TryParse(ps.GetBetweenN("(", "%)"), out int perc);
+                            onStdoutReadLine?.Invoke(100, ps, string.Join(",", fileNames[type]));
+                        }
+                    }
+                    onStdoutReadLine?.Invoke(-1, "", "");
+                    if (names.Count(t => File.Exists(t)) == names.Length)
+                    {
+                        File.Delete(zipNames[type]);
+                        return true;
+                    }
+                    return false;
+                }
+            }
+            catch
+            {
+            }
+            return false;
+        }
+
+        private static bool Exists(ResourceDownloadType type)
+        {
+            return File.Exists(Path.Combine(Path.GetFullPath(".\\"), fileNames[type][0]));
+        }
+    }
+
     [Flags]
     public enum ThreadAccess : int
     {
@@ -58,7 +240,7 @@ namespace LixDownlaoder
             else if (input.EndsWith("MiB"))
             {
                 double.TryParse(input.Replace("MiB", ""), System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.NumberFormatInfo.InvariantInfo, out size);
-                size *= HTTP_Stream_Server.MEGABYTE;
+                size *= LiXMath.MIBIBYTE;
             }
             else if (input.EndsWith("B"))
             {
@@ -95,7 +277,7 @@ namespace LixDownlaoder
                     if (File.Exists(fpath) && !File.Exists(apath))
                     {
                         FileInfo fas = new FileInfo(fpath);
-                        if (fas.Length > HTTP_Stream_Server.MEGABYTE)
+                        if (fas.Length > LiXMath.MIBIBYTE)
                         {
                             item.FilePath = fpath;
                             IsSuccess = true;
@@ -261,7 +443,7 @@ namespace LixDownlaoder
                         using (var stream = httpWebResponse.GetResponseStream())
                         {
                             var dt = DateTime.UtcNow;
-                            var buffsize = HTTP_Stream_Server.MEGABYTE;
+                            var buffsize = LiXMath.MIBIBYTE;
                             var buffer = new byte[buffsize];
                             var speed = 0;
                             while (!multiDownloader.IsStopped)
@@ -491,7 +673,7 @@ namespace LixDownlaoder
         //                }
         public Task<bool> Start(Form formCallback)
         {
-            if (LixDownloader.DownLoader.DownloadSync(LixDownloader.DownloadType.Aria2c, null))
+            if (ResourceDownLoader.DownloadSync(ResourceDownloadType.Aria2c, null))
             {
                 return Task.Run(() => CheckDownloads(formCallback));
             }

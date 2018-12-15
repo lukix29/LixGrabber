@@ -1,664 +1,16 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Net;
 using System.Threading.Tasks;
-using SerienStreamTo;
-using LixDownloader;
-using System.Management;
-
-//using PuppeteerSharp;
-
-namespace Kodi_RPC
-{
-    public enum KodiInput
-    {
-        Up,
-        Down,
-        Left,
-        Right,
-        Select,
-        ShowCodec,
-        ShowOSD,
-        ShowPlayerProcessInfo,
-        Info,
-        Home,
-        ContextMenu,
-        Back,
-        Fullscreen
-    }
-
-    public enum PlayerStatus : int
-    {
-        Playing = 1,
-        Pause = 2,
-        Stopped = 0,
-        Error = -1
-    }
-
-    public class Item
-    {
-        [JsonProperty("file")]
-        public string File { get; set; } = null;
-    }
-
-    public class KodiResult
-    {
-        [JsonProperty("id")]
-        public long Id { get; set; }
-
-        [JsonProperty("jsonrpc")]
-        public string Jsonrpc { get; set; }
-
-        [JsonProperty("result")]
-        public ParamsClass[] Status { get; set; }
-    }
-
-    public class KodiRPC : IDisposable
-    {
-        private HTTP_Stream_Server server;
-
-        public KodiRPC()
-        {
-            StreamPort = new Random().Next(8200, 9999);
-            server = new HTTP_Stream_Server(StreamPort);
-            server.Start();
-        }
-
-        public string Address { get; set; }
-        public int BufferSize { get { return server.BufferSize; } set { server.BufferSize = value; } }
-        public string Password { get; set; }
-        public PlayerResult PlayerInfo { get; private set; } = new PlayerResult() { Status = PlayerStatus.Error };
-        public int StreamPort { get; private set; } = 9123;
-        public string UserName { get; set; }
-
-        private int? PlayerID
-        {
-            get
-            {
-                if (PlayerInfo.PlayerID == null)
-                {
-                    var pl = _playerID();
-                    if (pl != null)
-                    {
-                        PlayerInfo.PlayerID = pl;
-                    }
-                }
-                return PlayerInfo.PlayerID;
-            }
-        }
-
-        public void Dispose()
-        {
-            server.Dispose();
-        }
-
-        public Task<PlayerResult> GetProperties()
-        {
-            return Task.Run(() =>
-            {
-                _properties();
-                if (PlayerInfo.Status != PlayerStatus.Error)
-                {
-                    _playerID();
-                    _position();
-                }
-                return PlayerInfo;
-            });
-        }
-
-        public Task<bool> Input(KodiInput input)
-        {
-            return Task.Run(() =>
-             {
-                 try
-                 {
-                     var method = ((input == KodiInput.Fullscreen) ? "GUI.Set" : "Input.") +
-                         Enum.GetName(typeof(KodiInput), input);
-
-                     var jsonrpc = new KodiRPC_JSON()
-                     {
-                         Id = "1",
-                         Jsonrpc = "2.0",
-                         Method = method,
-                         Params = (input == KodiInput.Fullscreen) ? new ParamsClass { Fullscreen = true } : null
-                     };
-                     var raw = sendJson(jsonrpc);
-                     var json = Newtonsoft.Json.Linq.JObject.Parse(raw);
-                     return (json["result"].Equals("OK"));
-                 }
-                 catch { }
-                 return false;
-             });
-            //var obj = Newtonsoft.Json.Linq.JObject.Parse(raw);
-        }
-
-        public Task<PlayerResult> Mute()
-        {
-            return Task.Run(() =>
-             {
-                 var jsonrpc = new KodiRPC_JSON()
-                 {
-                     Id = "1",
-                     Jsonrpc = "2.0",
-                     Method = "Application.SetMute",
-                     Params = new ParamsClass { Mute = !PlayerInfo.Muted }
-                 };
-                 var raw = sendJson(jsonrpc);
-                 try
-                 {
-                     var obj = Newtonsoft.Json.Linq.JObject.Parse(raw);
-                     var muted = obj.Value<bool>("result");
-                     PlayerInfo.Muted = muted;
-                 }
-                 catch { }
-                 return PlayerInfo;
-             });
-        }
-
-        public Task<PlayerResult> Pause()
-        {
-            return Task.Run(() =>
-            {
-                if (this.PlayerID != null)
-                {
-                    var jsonrpc = new KodiRPC_JSON()
-                    {
-                        Id = "1",
-                        Jsonrpc = "2.0",
-                        Method = "Player.PlayPause",
-                        Params = new ParamsClass()
-                        {
-                            PlayerID = this.PlayerID,
-                        }
-                    };
-                    var raw = sendJson(jsonrpc);
-                    try
-                    {
-                        var obj = Newtonsoft.Json.Linq.JObject.Parse(raw);
-                        var speed = obj.Last.Last.Value<int>("speed");
-                        PlayerInfo.Status = (speed == 0 ? PlayerStatus.Pause : PlayerStatus.Playing);
-                        return PlayerInfo;
-                    }
-                    catch { }
-                }
-                PlayerInfo.Status = PlayerStatus.Stopped;
-                return PlayerInfo;
-            });
-        }
-
-        public Task<PlayerResult> Play(string url)
-        {
-            return Task.Run(async () =>
-            {
-                try
-                {
-                    if (!url.StartsWith("http") && File.Exists(url))
-                    {
-                        url = System.Web.HttpUtility.UrlEncode(url);
-                        url = "http://" + HTTP_Stream_Server.GetLocalIPAddress() + ":" + StreamPort + "/" + url;
-                    }
-                    var jsonrpc = new KodiRPC_JSON()
-                    {
-                        Id = "1",
-                        Jsonrpc = "2.0",
-                        Method = "Player.Open",
-                        Params = new ParamsClass() { Properties = null, PlayerID = null, Item = new Item() { File = url } }
-                    };
-
-                    var raw = sendJson(jsonrpc);
-                    var obj = Newtonsoft.Json.Linq.JObject.Parse(raw);
-                    if (obj.Value<string>("result").Equals("OK"))
-                    {
-                        return await GetProperties();
-                    }
-                    else
-                    {
-                        PlayerInfo.Status = PlayerStatus.Stopped;
-                        return PlayerInfo;
-                    }
-                }
-                catch (Exception x)
-                {
-                    System.Windows.Forms.MessageBox.Show(x.ToString());
-                }
-                PlayerInfo.Status = PlayerStatus.Error;
-                return PlayerInfo;
-            });
-        }
-
-        public Task<bool> SetCredentials(string address, string username = null, string password = null)
-        {
-            return Task.Run(() =>
-            {
-                try
-                {
-                    using (var ping = new System.Net.NetworkInformation.Ping())
-                    {
-                        string addr = address;
-                        var port = "8080";
-                        if (addr.Contains(":"))
-                        {
-                            var arr = addr.Split(':');
-                            port = arr[1];
-                            addr = arr[0];
-                        }
-                        if (IPAddress.TryParse(addr, out IPAddress ip))
-                        {
-                            if (ping.Send(addr).Status == System.Net.NetworkInformation.IPStatus.Success)
-                            {
-                                Address = address;
-                                UserName = username;
-                                Password = password;
-                                GetProperties().Wait();
-                                if (PlayerInfo.Status != PlayerStatus.Error)
-                                {
-                                    return true;
-                                }
-                                else
-                                {
-                                    Address = null;
-                                    UserName = null;
-                                    Password = null;
-                                    return false;
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (Exception x)
-                {
-                    System.Windows.Forms.MessageBox.Show(x.ToString());
-                }
-                return false;
-            });
-        }
-
-        public Task<PlayerResult> Stop(KodiResult pl = null)
-        {
-            return Task.Run(() =>
-            {
-                try
-                {
-                    if (PlayerID != null)
-                    {
-                        var jsonrpc = new KodiRPC_JSON()
-                        {
-                            Id = "1",
-                            Jsonrpc = "2.0",
-                            Method = "Player.Stop",
-                            Params = new ParamsClass()
-                            {
-                                PlayerID = PlayerID,
-                            }
-                        };
-                        var raw = sendJson(jsonrpc);
-                        PlayerInfo.Status = PlayerStatus.Stopped;
-                    }
-                }
-                catch { }
-                return PlayerInfo;
-            });
-        }
-
-        public Task<PlayerResult> Volume(int volume = -1)
-        {
-            return Task.Run(() =>
-            {
-                try
-                {
-                    if (volume >= 0)
-                    {
-                        volume = Math.Max(0, Math.Min(100, volume));
-                        var jsonrpc = new KodiRPC_JSON()
-                        {
-                            Id = "1",
-                            Jsonrpc = "2.0",
-                            Method = "Application.SetVolume",
-                            Params = new ParamsClass { Volume = volume }
-                        };
-                        var raw = sendJson(jsonrpc);
-                        if (raw != null)
-                        {
-                            var obj = Newtonsoft.Json.Linq.JObject.Parse(raw);
-                            PlayerInfo.Volume = obj.Value<int>("result");
-                        }
-                    }
-                    else
-                    {
-                        _properties();
-                    }
-                }
-                catch { }
-                return PlayerInfo;
-            });
-        }
-
-        private PlayerResult _currentItem()
-        {
-            var jsonrpc = new KodiRPC_JSON()
-            {
-                Id = "1",
-                Jsonrpc = "2.0",
-                Method = "Player.GetItem",
-                Params = new ParamsClass()
-                {
-                    PlayerID = PlayerInfo.PlayerID,
-                    Properties = new List<string>()
-                     {
-                            "title",
-                            "album",
-                            "artist",
-                            "season",
-                            "episode",
-                            "duration",
-                            "showtitle",
-                            "tvshowid",
-                            "thumbnail",
-                            "file",
-                            "fanart",
-                            "streamdetails"
-                     }
-                }
-            };
-
-            var raw = sendJson(jsonrpc);
-            try
-            {
-                var json = Newtonsoft.Json.Linq.JToken.Parse(raw);
-                json = json["result"]["item"];
-                var file = json.Value<string>("file");
-                var title = json.Value<string>("label");
-                if (string.IsNullOrEmpty(title))
-                {
-                    title = json.Value<string>("title");
-                }
-                PlayerInfo.FileName = file;
-                PlayerInfo.Title = title;
-                var thumb = json.Value<string>("thumbnail");
-                if (!string.IsNullOrEmpty(thumb))
-                {
-                    thumb = System.Web.HttpUtility.UrlDecode(thumb);
-                    thumb = thumb.Replace("image://", "").Trim('/');
-                }
-                PlayerInfo.Thumbnail = thumb;
-            }
-            catch { }
-            return PlayerInfo;
-        }
-
-        private int? _playerID()
-        {
-            try
-            {
-                var jsonrpc = new KodiRPC_JSON()
-                {
-                    Id = "1",
-                    Jsonrpc = "2.0",
-                    Method = "Player.GetActivePlayers",
-                    Params = null
-                };
-                var raw = sendJson(jsonrpc);
-                var res = JsonConvert.DeserializeObject<KodiResult>(raw);
-                if (res.Status != null && res.Status.Length > 0)
-                {
-                    PlayerInfo.PlayerID = res.Status[0].PlayerID;
-                    return res.Status[0].PlayerID;
-                }
-            }
-            catch { }
-            return PlayerInfo.PlayerID = null;
-        }
-
-        private PlayerResult _position()
-        {
-            try
-            {
-                if (PlayerID != null)
-                {
-                    var jsonrpc = new KodiRPC_JSON()
-                    {
-                        Id = "1",
-                        Jsonrpc = "2.0",
-                        Method = "Player.GetProperties",
-                        Params = new ParamsClass()
-                        {
-                            PlayerID = PlayerID,
-                            Properties = new List<string>()
-                     {
-                        "percentage",
-                        "totaltime",
-                        "time"
-                     }
-                        }
-                    };
-
-                    var raw = sendJson(jsonrpc);
-                    var pi = JsonConvert.DeserializeObject<PlayerResult>(raw);
-                    PlayerInfo.PositionInfo = pi.PositionInfo;
-                    PlayerInfo.Status = (PlayerInfo.Duration.Ticks > 0) ? PlayerStatus.Playing : PlayerStatus.Stopped;
-                    if (PlayerInfo.Status > PlayerStatus.Stopped)
-                    {
-                        _currentItem();
-                    }
-                }
-                else
-                {
-                    PlayerInfo.Status = PlayerStatus.Stopped;
-                }
-            }
-            catch
-            {
-            }
-            return PlayerInfo;
-        }
-
-        private PlayerResult _properties()
-        {
-            var jsonrpc = new KodiRPC_JSON()
-            {
-                Id = "1",
-                Jsonrpc = "2.0",
-                Method = "Application.GetProperties",
-                Params = new ParamsClass()
-                {
-                    Properties = new List<string>()
-                    {   "muted" ,
-                        "volume"
-                    }
-                }
-            };
-            var raw = sendJson(jsonrpc);
-            if (raw != null)
-            {
-                try
-                {
-                    var json = Newtonsoft.Json.Linq.JToken.Parse(raw);
-                    json = json["result"];
-                    var muted = json.Value<bool>("muted");
-                    var volume = json.Value<int>("volume");
-                    PlayerInfo.Muted = muted;
-                    PlayerInfo.Volume = volume;
-                    if (PlayerInfo.Status == PlayerStatus.Error) PlayerInfo.Status = PlayerStatus.Stopped;
-                }
-                catch { PlayerInfo.Status = PlayerStatus.Error; }
-            }
-            else PlayerInfo.Status = PlayerStatus.Error;
-            return PlayerInfo;
-        }
-
-        private string sendJson(object jsonrpc)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(Address)) return null;
-                using (var ping = new System.Net.NetworkInformation.Ping())
-                {
-                    if (ping.Send(Address).Status == System.Net.NetworkInformation.IPStatus.Success)
-                    {
-                        using (WebClient wc = new WebClient())
-                        {
-                            wc.Proxy = null;
-                            wc.Headers[HttpRequestHeader.ContentType] = "application/json";
-                            wc.UseDefaultCredentials = true;
-                            wc.Credentials = new NetworkCredential(UserName, Password);
-                            string json = JsonConvert.SerializeObject(jsonrpc, Formatting.None, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
-                            json = WebUtility.UrlEncode(json);
-                            return wc.DownloadString("http://" + Address + "/jsonrpc?request=" + json);
-                        }
-                    }
-                }
-            }
-            catch
-            { }
-            return null;
-        }
-
-        //private class MyWebClient : WebClient
-        //{
-        //    protected override WebRequest GetWebRequest(Uri uri)
-        //    {
-        //        WebRequest wc = base.GetWebRequest(uri);
-        //        wc.Timeout = 10 * 1000;
-
-        //        return wc;
-        //    }
-        //}
-    }
-
-    public class KodiRPC_JSON
-    {
-        // {"id":"1","jsonrpc":"2.0","result":[{"playerid":0,"type":"video"}]}
-        [JsonProperty("id")]
-        public string Id { get; set; }
-
-        [JsonProperty("jsonrpc")]
-        public string Jsonrpc { get; set; }
-
-        [JsonProperty("method")]
-        public string Method { get; set; }
-
-        [JsonProperty("params")]
-        public ParamsClass Params { get; set; }
-    }
-
-    public class ParamsClass
-    {
-        [JsonProperty("fullscreen")]
-        public bool? Fullscreen { get; set; } = null;
-
-        [JsonProperty("item")]
-        public Item Item { get; set; } = null;
-
-        [JsonProperty("items")]
-        public List<string> Items { get; set; } = null;
-
-        [JsonProperty("mute")]
-        public bool? Mute { get; set; } = null;
-
-        [JsonProperty("playerid")]
-        public int? PlayerID { get; set; } = null;
-
-        [JsonProperty("properties")]
-        public List<string> Properties { get; set; } = null;
-
-        [JsonProperty("type")]
-        public string Type { get; set; } = null;
-
-        [JsonProperty("volume")]
-        public int? Volume { get; set; } = null;
-    }
-
-    public class PlayerResult
-    {
-        //    [JsonIgnore]
-        //    public static PlayerResult Error { get { return new PlayerResult() { Status = PlayerStatus.Error }; } }
-
-        //    [JsonIgnore]
-        //    public static PlayerResult Stopped { get { return new PlayerResult() { Status = PlayerStatus.Stopped }; } }
-
-        [JsonProperty("id")]
-        public long CommandID { get; set; }
-
-        [JsonIgnore]
-        public TimeSpan CurrentTime { get { return PositionInfo.Time.Span; } }
-
-        [JsonIgnore]
-        public TimeSpan Duration { get { return PositionInfo.Totaltime.Span; } }
-
-        [JsonIgnore]
-        public string FileName { get; set; }
-
-        [JsonIgnore]
-        public bool Muted { get; set; }
-
-        [JsonIgnore]
-        public double Percentage { get { return PositionInfo.Percentage; } }
-
-        [JsonIgnore]
-        public int? PlayerID { get; set; }
-
-        [JsonProperty("result")]
-        public ResultClass PositionInfo { get; set; } = new ResultClass();
-
-        [JsonIgnore]
-        public PlayerStatus Status
-        {
-            get;
-            set;
-        }
-
-        [JsonIgnore]
-        public string Thumbnail { get; set; }
-
-        [JsonIgnore]
-        public string Title { get; set; }
-
-        [JsonIgnore]
-        public int Volume { get; set; }
-
-        public class ResultClass
-        {
-            [JsonProperty("percentage")]
-            public double Percentage { get; set; } = 0;
-
-            [JsonProperty("time")]
-            public Time Time { get; set; } = new Time();
-
-            [JsonProperty("totaltime")]
-            public Time Totaltime { get; set; } = new Time();
-        }
-
-        public class Time
-        {
-            [JsonProperty("hours")]
-            public int Hours { get; set; } = 0;
-
-            [JsonProperty("milliseconds")]
-            public int Milliseconds { get; set; } = 0;
-
-            [JsonProperty("minutes")]
-            public int Minutes { get; set; } = 0;
-
-            [JsonProperty("seconds")]
-            public int Seconds { get; set; } = 0;
-
-            [JsonIgnore]
-            public TimeSpan Span
-            {
-                get
-                {
-                    return new TimeSpan(0, Hours, Minutes, Seconds, Milliseconds);
-                }
-            }
-        }
-    }
-}
-
-namespace SerienStreamTo
+using Lix.Downloader;
+using Lix.Extensions;
+using Newtonsoft.Json;
+
+namespace Lix.SeriesManager
 {
     public enum HosterSites : int
     {
@@ -701,81 +53,6 @@ namespace SerienStreamTo
         None = 0,
         URL = 1,
         Direct = 2,
-    }
-
-    public static class Extensions
-    {
-        public static string GetBetween(this string input, string left, string right = null)
-        {
-            int i0 = input.IndexOf(left) + (left.Length + 1);
-            if (string.IsNullOrEmpty(right))
-            {
-                return input.Substring(i0);
-            }
-            int i1 = input.IndexOf(right, i0);
-            if (i1 < i0)
-            {
-                return input.Substring(i0);
-            }
-            else
-            {
-                return input.Substring(i0, i1 - i0);
-            }
-        }
-
-        public static string GetBetweenN(this string input, string left, string right = null)
-        {
-            int i0 = input.IndexOf(left) + (left.Length);
-            if (string.IsNullOrEmpty(right))
-            {
-                return input.Substring(i0);
-            }
-            int i1 = input.IndexOf(right, i0);
-            if (i1 < i0)
-            {
-                return input.Substring(i0);
-            }
-            else
-            {
-                return input.Substring(i0, i1 - i0);
-            }
-        }
-
-        public static string GetLast(this string input, string left, string right = null)
-        {
-            int i0 = input.LastIndexOf(left) + (left.Length);
-            if (string.IsNullOrEmpty(right))
-            {
-                return input.Substring(i0);
-            }
-            int i1 = input.IndexOf(right, i0);
-            if (i1 < i0)
-            {
-                return input.Substring(i0);
-            }
-            else
-            {
-                return input.Substring(i0, i1 - i0);
-            }
-        }
-
-        public static string RemoveInvalidFileChars(this string input, string replaceto = "")
-        {
-            foreach (char c in Path.GetInvalidFileNameChars())
-            {
-                input = input.Replace(new string(c, 1), replaceto);
-            }
-            return input;
-        }
-
-        public static string RemoveInvalidPathChars(this string input, string replaceto = "")
-        {
-            foreach (char c in Path.GetInvalidPathChars())
-            {
-                input = input.Replace(new string(c, 1), replaceto);
-            }
-            return input;
-        }
     }
 
     public class HosterApi
@@ -903,7 +180,7 @@ namespace SerienStreamTo
     }
 }
 
-namespace SerienStreamTo
+namespace Lix.SeriesManager
 {
     public enum SiteType
     {
@@ -1248,7 +525,7 @@ namespace SerienStreamTo
 
         public async Task<bool> Play(CancellationToken cancellationToken, Action<int, string, string> downloadInfo)
         {
-            if (await DownLoader.Download(DownloadType.MPV, downloadInfo))
+            if (await ResourceDownLoader.Download(ResourceDownloadType.MPV, downloadInfo))
             {
                 var proc = new System.Diagnostics.Process();
                 proc.StartInfo.FileName = "mpv.exe";
@@ -1715,7 +992,7 @@ namespace SerienStreamTo
         public static bool Download(string path, string file, string url, CancellationToken token, Action<int, string, string> onStdoutReadLine)
         {
             if (token.IsStopped) return false;
-            if (DownLoader.DownloadSync(DownloadType.Aria2c, onStdoutReadLine))
+            if (ResourceDownLoader.DownloadSync(ResourceDownloadType.Aria2c, onStdoutReadLine))
             {
                 using (Process p = new Process())
                 {
@@ -1777,7 +1054,7 @@ namespace SerienStreamTo
             {
                 return Task.Run(() =>
                 {
-                    var ainfo = LixAnimeGrabber.VideoLoader.GetAnimeInfo(lang.URL, lang.Hoster.Type);
+                    var ainfo = Lix.Anime.VideoLoader.GetAnimeInfo(lang.URL, lang.Hoster.Type);
                     lang.Video_URL = ainfo.Video_URL;
                     return lang.Video_URL;
                 });
@@ -1934,7 +1211,7 @@ namespace SerienStreamTo
             }
             else
             {
-                if (DownLoader.DownloadSync(DownloadType.YT_DL, action))
+                if (ResourceDownLoader.DownloadSync(ResourceDownloadType.YT_DL, action))
                 {
                     using (Process p = new Process())
                     {
@@ -1982,7 +1259,7 @@ namespace SerienStreamTo
             }
         }
 
-        private static SeriesInfo ConvertAnimeInfo(string URL, LixAnimeGrabber.AnimeIDS dict, Action<int, string, string, int> action, SeriesInfo oldSeriesInfo = null)
+        private static SeriesInfo ConvertAnimeInfo(string URL, Lix.Anime.AnimeIDS dict, Action<int, string, string, int> action, SeriesInfo oldSeriesInfo = null)
         {
             SeriesInfo serie = new SeriesInfo()
             {
@@ -2048,10 +1325,10 @@ namespace SerienStreamTo
             {
                 try
                 {
-                    var animids = LixAnimeGrabber.VideoLoader.Fetch9AnimeIDs(info.URL, action);
+                    var animids = Lix.Anime.VideoLoader.Fetch9AnimeIDs(info.URL, action);
 
                     var epis = info.Episodes;
-                    Dictionary<HosterSites, List<LixAnimeGrabber.AnimeEpisodes>> IDs = new Dictionary<HosterSites, List<LixAnimeGrabber.AnimeEpisodes>>();
+                    Dictionary<HosterSites, List<Lix.Anime.AnimeEpisodes>> IDs = new Dictionary<HosterSites, List<Lix.Anime.AnimeEpisodes>>();
                     foreach (var key in animids.IDs.Keys)
                     {
                         var arr = animids.IDs[key].Where(t => !epis.Any(t1 => t1.Index == t.Index)).ToList();
@@ -2089,7 +1366,7 @@ namespace SerienStreamTo
                         URL = URL.Replace(fn, "");
                     }
                     //LixAnimeGrabber.VideoLoader.FetchVideoHosterLinks()
-                    var arr = LixAnimeGrabber.VideoLoader.Fetch9AnimeIDs(URL, action);
+                    var arr = Lix.Anime.VideoLoader.Fetch9AnimeIDs(URL, action);
                     return ConvertAnimeInfo(URL, arr, action, oldSeriesInfo);
                 }
                 catch (Exception x)
